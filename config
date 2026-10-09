@@ -1,0 +1,42 @@
+ngx_addon_name=ngx_http_json_status_module
+
+HTTP_JSON_STATUS_SRCS="$ngx_addon_dir/src/ngx_http_json_status_module.c"
+
+# The counters this module prints live behind NGX_STAT_STUB, and so does the
+# code in eleven of nginx's own sources that increments them.  nginx defines
+# it when its stub status module is built, and that one is off by default --
+# so the define has to be set here, or the module would read counters that
+# are never touched.  auto/have appends to ngx_auto_config.h, which the core
+# sources see as well, because addon config files are read before anything
+# is compiled.
+have=NGX_STAT_STUB . auto/have
+
+if test -n "$ngx_module_link"; then
+    ngx_module_type=HTTP
+    ngx_module_name=$ngx_addon_name
+    ngx_module_incs=
+    ngx_module_deps=
+    ngx_module_srcs="$HTTP_JSON_STATUS_SRCS"
+    ngx_module_libs=
+
+    . auto/module
+
+    if [ "$ngx_module_link" = DYNAMIC ] && [ "$HTTP_STUB_STATUS" != YES ]
+    then
+        cat << END
+
+$0: error: the json status module is being built as a loadable module for an
+nginx that is configured without its stub status module.  The counters this
+module reads are defined in the nginx binary only when NGX_STAT_STUB is set
+there, so loading it would fail on an undefined symbol.
+
+Either add --with-http_stub_status_module, or build this module statically
+with --add-module, where setting the define reaches nginx's own sources too.
+
+END
+        exit 1
+    fi
+else
+    HTTP_MODULES="$HTTP_MODULES $ngx_addon_name"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $HTTP_JSON_STATUS_SRCS"
+fi
